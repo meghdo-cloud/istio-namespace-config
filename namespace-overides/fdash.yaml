@@ -6,7 +6,7 @@
 #################################################
 namespace:
   create: true
-  name: ""
+  name: "fdash"
   istioInjection: true
   labels: {}
   annotations: {}
@@ -37,19 +37,19 @@ ingressPatterns: []
   #     issuerKind: "ClusterIssuer"
   #   # Routes to your application (you still create VirtualService for routing)
   
-  # Pattern 2: Mutual TLS Ingress
-  # - name: "api"
-  #   type: "mtls"
-  #   hosts:
-  #     - "api.example.com"
-  #   certificate:
-  #     issuer: "company-ca"
-  #     issuerKind: "Issuer"
-  #   mtls:
-  #     clientCaCertificate: "LS0tLS..." # base64 encoded CA cert
-  #   # Optional: Add authorization
-  #   authorization:
-  #     mode: "require-client-cert"
+  Pattern 2: Mutual TLS Ingress
+  - name: "api"
+    type: "mtls"
+    hosts:
+      - "app.pristinebsl.com"
+    certificate:
+      issuer: "default-issuer"
+      issuerKind: "Issuer"
+    mtls:
+      clientCaCertificate: "LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUMvRENDQWVTZ0F3SUJBZ0lRQTR3L0piQ3NHM3lobTVpZjFma3c3VEFOQmdrcWhraUc5dzBCQVFzRkFEQVkKTVJZd0ZBWURWUVFLRXcxamJIVnpkR1Z5TG14dlkyRnNNQjRYRFRJMU1UQXlOVEV4TkRFeE1Wb1hEVE0xTVRBeQpNekV4TkRFeE1Wb3dHREVXTUJRR0ExVUVDaE1OWTJ4MWMzUmxjaTVzYjJOaGJEQ0NBU0l3RFFZSktvWklodmNOCkFRRUJCUUFEZ2dFUEFEQ0NBUW9DZ2dFQkFObkpDUUw5bG9XbExSQWN1TkdpbCtWaHdqYjMzVlZDd2UxbzJBS2sKTGxJYXBoK3B3VmlOdDhpS2QwMGR6Vk9iZW9HTHA4ZUZ3azhKRjhEUXg2Z2tXQ3oyMmJHK0FrSlp0NDJGVjJIZwpSc3FFdjg0OVRXbG1PV3hycDhqZXJ3TlA2ZndpekNYbzZWUFhaSXpsbTJqRURoTzJjdzZqamdXQTBqYkxTNVNsCk9ZdHR1Qm5ZMzMyeUhYT0hXbGdvK2RGUnhJSGxSSll6eVlSVzZTdC9YWnhjTXM5RmpBS2JXUzg0NlJmTHlCUncKUGROUW8yQmpsK2JRR20rbkRiN2Y0TGtOblQxb0NTYndDS0FSdkJKQWZVbVd2K0FzaUJ2S0ZhWmdqeEg1Sms0MQpncmRzRUo2SFV6UWZEb3BoUG82U3FlK3ZxNVo4V3hiZkRibm55M255MHRLL0Noa0NBd0VBQWFOQ01FQXdEZ1lEClZSMFBBUUgvQkFRREFnSUVNQThHQTFVZEV3RUIvd1FGTUFNQkFmOHdIUVlEVlIwT0JCWUVGSnZWd0NUVWpZRjAKb1pDNnhuZkRyNTdiKzNkOU1BMEdDU3FHU0liM0RRRUJDd1VBQTRJQkFRQ3VPSlhNUU13ejZVRy9UdTVUT3ZIZwo2WDhNUWI2NGpZTHlRTllIVGNDZ3NlM2NpL1BmNGtlU1V1TExhN0pDSW1EenJsTHVmaFIzUjBnbDh6K2tMcHl2Ck1TZGlaYlhaTktmS1ZsVS9oNXpTQ0hlVFhQUXRlWVUwUlNMY2lkWklLRGtkRE1nN3hXdUNncW1RVjlKYko0TkUKQ3N2Zjlid29lUzJKbHBpUXJRY0Z6aXNTcFJralRvTHBIV2E3bmFsa1F3dXR4ZnlqckMrWmxrZ1pFV29IM2g2cApKYUhQRWRwSWJzT3NJTGRYakRZZlc0eFJGSEJvV2VRRnduR09qQUowME80S2JEL1hvZVYzTnYzZ3hFbFRheFIxCi9Ld0s4VWpQcWw4RzBOUWs1cHB2RzlUR2tRTUwwZFZIWXBTTmRVQjRVdXJJVkFVYUFDYnQzUk11SzhhcUY2YXMKLS0tLS1FTkQgQ0VSVElGSUNBVEUtLS0tLQo=" # base64 encoded CA cert
+    # Optional: Add authorization
+    authorization:
+      mode: "require-client-cert"
   
   # Pattern 3: JWT Protected API
   # - name: "protected-api"
@@ -99,22 +99,22 @@ egressPatterns: []
   #   type: "https-api"
   #   host: "api.stripe.com"
   
-  # Multi-connection pattern for services needing multiple external connections
-  # - name: "payment-service"
-  #   connections:
-  #     - name: "stripe-api"
-  #       type: "https-api"
-  #       host: "api.stripe.com"
-  #     - name: "payment-db"
-  #       type: "tcp-database"
-  #       host: "db.payment.com"
-  #       port: 5432
-  #     - name: "audit-api"
-  #       type: "https-api-resilient"
-  #       host: "audit.internal.com"
-  #       resilience:
-  #         timeout: "30s"
-  #         retries: 3
+  Multi-connection pattern for services needing multiple external connections
+  - name: "payment-service"
+    connections:
+      - name: "stripe-api"
+        type: "https-api"
+        host: "api.stripe.com"
+      - name: "audit-api"
+        type: "https-api-resilient"
+        host: "audit.internal.com"
+        resilience:
+          timeout: "30s"
+          retries: 3
+      # - name: "payment-db"
+      #   type: "tcp-database"
+      #   host: "db.payment.com"
+      #   port: 5432
 
 #################################################
 # SECURITY PATTERNS
