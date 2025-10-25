@@ -87,11 +87,5 @@ spec:
     - from:
         - source:
             principals: ["*"]  # Any client with valid certificate
-      when:
-        - key: connection.requested_server_name
-          values:
-            {{- range $pattern.hosts }}
-            - {{ . | quote }}
-            {{- end }}
 {{- end }}
 {{- end -}}
