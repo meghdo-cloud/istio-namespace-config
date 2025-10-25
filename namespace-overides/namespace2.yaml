@@ -1,0 +1,186 @@
+# Pattern-Based Istio Infrastructure
+# Configure high-level patterns instead of individual Istio resources
+
+#################################################
+# NAMESPACE CONFIGURATION
+#################################################
+namespace:
+  create: true
+  name: ""
+  istioInjection: true
+  labels: {}
+  annotations: {}
+  
+  resourceQuota:
+    enabled: false
+    hard:
+      requests.cpu: "10"
+      requests.memory: "20Gi"
+      limits.cpu: "20"
+      limits.memory: "40Gi"
+      pods: "50"
+
+#################################################
+# INGRESS PATTERNS
+#################################################
+# Simply define what kind of ingress you need
+# The chart creates all necessary resources (Gateway, Certificate, AuthN/AuthZ)
+
+ingressPatterns: []
+  # Pattern 1: Simple HTTPS Ingress
+  # - name: "webapp"
+  #   type: "simple-https"
+  #   hosts:
+  #     - "app.example.com"
+  #   certificate:
+  #     issuer: "letsencrypt-prod"
+  #     issuerKind: "ClusterIssuer"
+  #   # Routes to your application (you still create VirtualService for routing)
+  
+  # Pattern 2: Mutual TLS Ingress
+  # - name: "api"
+  #   type: "mtls"
+  #   hosts:
+  #     - "api.example.com"
+  #   certificate:
+  #     issuer: "company-ca"
+  #     issuerKind: "Issuer"
+  #   mtls:
+  #     clientCaCertificate: "LS0tLS..." # base64 encoded CA cert
+  #   # Optional: Add authorization
+  #   authorization:
+  #     mode: "require-client-cert"
+  
+  # Pattern 3: JWT Protected API
+  # - name: "protected-api"
+  #   type: "jwt-auth"
+  #   hosts:
+  #     - "api.example.com"
+  #   certificate:
+  #     issuer: "letsencrypt-prod"
+  #     issuerKind: "ClusterIssuer"
+  #   jwt:
+  #     issuer: "https://auth.example.com"
+  #     jwksUri: "https://auth.example.com/.well-known/jwks.json"
+  #     audiences:
+  #       - "api.example.com"
+  #   # Optional: Require specific claims
+  #   authorization:
+  #     mode: "require-jwt"
+  #     allowedRoles: ["admin", "user"]
+  
+  # Pattern 4: Multi-tier with Internal+External
+  # - name: "multi-tier"
+  #   type: "multi-tier"
+  #   publicHosts:
+  #     - "app.example.com"
+  #   internalHosts:
+  #     - "api.internal.example.com"
+  #   certificate:
+  #     issuer: "letsencrypt-prod"
+  #     issuerKind: "ClusterIssuer"
+  #   jwt:
+  #     issuer: "https://auth.example.com"
+  #     jwksUri: "https://auth.example.com/.well-known/jwks.json"
+  #   authorization:
+  #     publicPaths: ["/", "/health"]
+  #     authenticatedPaths: ["/api/*"]
+  #     adminPaths: ["/admin/*"]
+
+#################################################
+# EGRESS PATTERNS
+#################################################
+# Define external services and the chart creates all resources
+# (ServiceEntry, VirtualService, DestinationRule, Gateway)
+
+egressPatterns: []
+  # Single connection patterns (backward compatible)
+  # - name: "stripe"
+  #   type: "https-api"
+  #   host: "api.stripe.com"
+  
+  # Multi-connection pattern for services needing multiple external connections
+  # - name: "payment-service"
+  #   connections:
+  #     - name: "stripe-api"
+  #       type: "https-api"
+  #       host: "api.stripe.com"
+  #     - name: "payment-db"
+  #       type: "tcp-database"
+  #       host: "db.payment.com"
+  #       port: 5432
+  #     - name: "audit-api"
+  #       type: "https-api-resilient"
+  #       host: "audit.internal.com"
+  #       resilience:
+  #         timeout: "30s"
+  #         retries: 3
+
+#################################################
+# SECURITY PATTERNS
+#################################################
+securityPatterns:
+  # Peer Authentication (mTLS between services)
+  peerAuthentication:
+    enabled: true
+    mode: "STRICT"  # STRICT, PERMISSIVE, or DISABLE
+  
+  # Authorization Pattern
+  authorization:
+    # none: No authorization policies
+    # basic: Allow same namespace + monitoring
+    # zero-trust: Default deny + explicit allows
+    mode: "basic"  # none, basic, zero-trust
+    
+    # For basic mode: additional namespaces to allow
+    allowedNamespaces: []
+      # - "frontend"
+      # - "monitoring"
+    
+    # For zero-trust mode: define allowed communications
+    zeroTrust:
+      rules: []
+        # - name: "allow-frontend-to-api"
+        #   from:
+        #     namespaces: ["frontend"]
+        #     serviceAccounts: ["webapp"]
+        #   to:
+        #     selector:
+        #       app: api
+        #     operations:
+        #       methods: ["GET", "POST"]
+        #       paths: ["/api/v1/*"]
+  
+  # Egress Control
+  egressControl:
+    # allow-all: Allow all outbound traffic (default K8s behavior)
+    # allow-registered: Only allow explicitly defined external services
+    # deny-all: Block all egress except DNS
+    mode: "allow-all"  # allow-all, allow-registered, deny-all
+
+#################################################
+# GLOBAL SETTINGS
+#################################################
+global:
+  istioNamespace: "istio-system"
+  
+  # Certificate defaults (can be overridden per ingress pattern)
+  certificateDefaults:
+    duration: "2160h"  # 90 days
+    renewBefore: "720h"  # 30 days
+    algorithm: "RSA"
+    keySize: 2048
+  
+  # Egress defaults (can be overridden per egress pattern)
+  egressDefaults:
+    # Route through egress gateway?
+    useEgressGateway: true
+    # Default timeout for external calls
+    timeout: "30s"
+    # Default retry policy
+    retries: 2
+  
+  # Common labels for all resources
+  commonLabels: {}
+    # app.kubernetes.io/managed-by: "helm"
+    # team: "platform"
