@@ -3,7 +3,7 @@
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: {{ .Values.namespace.name | default .Release.Namespace }}
+  name: {{ .Values.namespace.name | default .Release.Namespace | quote }}
   labels:
     {{- if .Values.namespace.istioInjection }}
     istio-injection: enabled
@@ -25,8 +25,8 @@ metadata:
 apiVersion: v1
 kind: ResourceQuota
 metadata:
-  name: {{ .Values.namespace.name | default .Release.Namespace }}-quota
-  namespace: {{ .Values.namespace.name | default .Release.Namespace }}
+  name: {{ .Values.namespace.name | default .Release.Namespace | quote }}-quota
+  namespace: {{ .Values.namespace.name | default .Release.Namespace | quote }}
   labels:
     app.kubernetes.io/name: {{ include "chart.name" . }}
     app.kubernetes.io/instance: {{ .Release.Name }}
