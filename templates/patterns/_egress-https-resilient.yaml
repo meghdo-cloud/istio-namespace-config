@@ -74,10 +74,10 @@ spec:
             host: istio-egressgateway.{{ $root.Values.global.istioNamespace }}.svc.cluster.local
             port:
               number: 443
-      timeout: {{ $pattern.resilience.timeout | default "30s" }}
+      timeout: {{ dig "resilience" "timeout" "30s" $pattern }}
       retries:
-        attempts: {{ $pattern.resilience.retries | default 3 }}
-        perTryTimeout: {{ div (trimSuffix "s" ($pattern.resilience.timeout | default "30s") | int) ($pattern.resilience.retries | default 3 | int) }}s
+        attempts: {{ dig "resilience" "retries" 3 $pattern }}
+        perTryTimeout: {{ div (trimSuffix "s" (dig "resilience" "timeout" "30s" $pattern) | int) (dig "resilience" "retries" 3 $pattern | int) }}s
         retryOn: "5xx,reset,connect-failure,refused-stream"
     - match:
         - gateways:
@@ -94,10 +94,10 @@ spec:
             host: {{ $pattern.host | quote }}
             port:
               number: 443
-      timeout: {{ $pattern.resilience.timeout | default "30s" }}
+      timeout: {{ dig "resilience" "timeout" "30s" $pattern }}
       retries:
-        attempts: {{ $pattern.resilience.retries | default 3 }}
-        perTryTimeout: {{ div (trimSuffix "s" ($pattern.resilience.timeout | default "30s") | int) ($pattern.resilience.retries | default 3 | int) }}s
+        attempts: {{ dig "resilience" "retries" 3 $pattern }}
+        perTryTimeout: {{ div (trimSuffix "s" (dig "resilience" "timeout" "30s" $pattern) | int) (dig "resilience" "retries" 3 $pattern | int) }}s
         retryOn: "5xx,reset,connect-failure,refused-stream"
     {{- end }}
 ---
@@ -118,15 +118,15 @@ spec:
       sni: {{ $pattern.host | quote }}
     connectionPool:
       tcp:
-        maxConnections: {{ $pattern.resilience.circuitBreaker.maxConnections | default 100 }}
-        connectTimeout: {{ $pattern.resilience.connectTimeout | default "10s" }}
+        maxConnections: {{ dig "resilience" "circuitBreaker" "maxConnections" 100 $pattern }}
+        connectTimeout: {{ dig "resilience" "connectTimeout" "10s" $pattern }}
       http:
-        http1MaxPendingRequests: {{ $pattern.resilience.circuitBreaker.maxPendingRequests | default 50 }}
-        http2MaxRequests: {{ $pattern.resilience.circuitBreaker.maxRequests | default 100 }}
-        maxRequestsPerConnection: {{ $pattern.resilience.circuitBreaker.maxRequestsPerConnection | default 2 }}
+        http1MaxPendingRequests: {{ dig "resilience" "circuitBreaker" "maxPendingRequests" 50 $pattern }}
+        http2MaxRequests: {{ dig "resilience" "circuitBreaker" "maxRequests" 100 $pattern }}
+        maxRequestsPerConnection: {{ dig "resilience" "circuitBreaker" "maxRequestsPerConnection" 2 $pattern }}
     outlierDetection:
-      consecutive5xxErrors: {{ $pattern.resilience.circuitBreaker.consecutive5xxErrors | default 5 }}
-      interval: {{ $pattern.resilience.circuitBreaker.interval | default "30s" }}
-      baseEjectionTime: {{ $pattern.resilience.circuitBreaker.baseEjectionTime | default "30s" }}
-      maxEjectionPercent: {{ $pattern.resilience.circuitBreaker.maxEjectionPercent | default 50 }}
+      consecutive5xxErrors: {{ dig "resilience" "circuitBreaker" "consecutive5xxErrors" 5 $pattern }}
+      interval: {{ dig "resilience" "circuitBreaker" "interval" "30s" $pattern }}
+      baseEjectionTime: {{ dig "resilience" "circuitBreaker" "baseEjectionTime" "30s" $pattern }}
+      maxEjectionPercent: {{ dig "resilience" "circuitBreaker" "maxEjectionPercent" 50 $pattern }}
 {{- end -}}

@@ -26,7 +26,7 @@ namespace:
 # Simply define what kind of ingress you need
 # The chart creates all necessary resources (Gateway, Certificate, AuthN/AuthZ)
 
-ingressPatterns: []
+ingressPatterns:
   # Pattern 1: Simple HTTPS Ingress
   # - name: "webapp"
   #   type: "simple-https"
@@ -37,7 +37,7 @@ ingressPatterns: []
   #     issuerKind: "ClusterIssuer"
   #   # Routes to your application (you still create VirtualService for routing)
   
-  Pattern 2: Mutual TLS Ingress
+  # Pattern 2: Mutual TLS Ingress
   - name: "api"
     type: "mtls"
     hosts:
@@ -93,13 +93,13 @@ ingressPatterns: []
 # Define external services and the chart creates all resources
 # (ServiceEntry, VirtualService, DestinationRule, Gateway)
 
-egressPatterns: []
+egressPatterns:
   # Single connection patterns (backward compatible)
   # - name: "stripe"
   #   type: "https-api"
   #   host: "api.stripe.com"
   
-  Multi-connection pattern for services needing multiple external connections
+  # Multi-connection pattern for services needing multiple external connections
   - name: "payment-service"
     connections:
       - name: "stripe-api"
@@ -111,10 +111,10 @@ egressPatterns: []
         resilience:
           timeout: "30s"
           retries: 3
-      # - name: "payment-db"
-      #   type: "tcp-database"
-      #   host: "db.payment.com"
-      #   port: 5432
+      - name: "payment-db"
+        type: "tcp-database"
+        host: "db.payment.com"
+        port: 5432
 
 #################################################
 # SECURITY PATTERNS

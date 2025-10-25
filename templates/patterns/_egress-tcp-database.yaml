@@ -66,12 +66,12 @@ spec:
   trafficPolicy:
     connectionPool:
       tcp:
-        maxConnections: {{ $pattern.resilience.maxConnections | default 100 }}
-        connectTimeout: {{ $pattern.resilience.connectTimeout | default "10s" }}
-    {{- if $pattern.resilience.outlierDetection }}
+        maxConnections: {{ dig "resilience" "maxConnections" 100 $pattern }}
+        connectTimeout: {{ dig "resilience" "connectTimeout" "10s" $pattern }}
+    {{- if dig "resilience" "outlierDetection" false $pattern }}
     outlierDetection:
-      consecutiveErrors: {{ $pattern.resilience.outlierDetection.consecutiveErrors | default 5 }}
-      interval: {{ $pattern.resilience.outlierDetection.interval | default "10s" }}
-      baseEjectionTime: {{ $pattern.resilience.outlierDetection.baseEjectionTime | default "30s" }}
+      consecutiveErrors: {{ dig "resilience" "outlierDetection" "consecutiveErrors" 5 $pattern }}
+      interval: {{ dig "resilience" "outlierDetection" "interval" "10s" $pattern }}
+      baseEjectionTime: {{ dig "resilience" "outlierDetection" "baseEjectionTime" "30s" $pattern }}
     {{- end }}
 {{- end -}}
