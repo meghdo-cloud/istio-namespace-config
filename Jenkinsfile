@@ -30,7 +30,7 @@ pipeline {
                 script {
                     container('infra-tools') {
                       sh """
-                         helm update --install istio-${params.namespace} \
+                         helm upgrade --install istio-${params.namespace} \
                                 --namespace ${params.namespace} \
                                 --create-namespace \
                                 --values namespace-overides/${params.namespace}.yaml
