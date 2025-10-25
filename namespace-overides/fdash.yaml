@@ -159,6 +159,14 @@ securityPatterns:
     mode: "allow-all"  # allow-all, allow-registered, deny-all
 
 #################################################
+# RBAC CONFIGURATION
+#################################################
+rbac:
+  create: true
+  serviceAccountName: "jenkins"
+  serviceAccountNamespace: "jenkins"
+
+#################################################
 # GLOBAL SETTINGS
 #################################################
 global:
