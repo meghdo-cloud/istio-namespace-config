@@ -1,0 +1,15 @@
+{{- if .Values.securityPatterns.peerAuthentication.enabled }}
+---
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: default
+  namespace: {{ .Values.namespace.name | default .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: {{ include "chart.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    security-pattern: "peer-authentication"
+spec:
+  mtls:
+    mode: {{ .Values.securityPatterns.peerAuthentication.mode }}
+{{- end }}

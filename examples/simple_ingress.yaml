@@ -1,0 +1,30 @@
+# Simple HTTPS Web Application
+# Just specify the pattern - all Istio resources created automatically!
+
+namespace:
+  create: true
+  name: "my-webapp"
+  istioInjection: true
+
+# Pattern 1: Simple HTTPS Ingress
+# Creates: Gateway, Certificate, TLS config
+ingressPatterns:
+  - name: "webapp"
+    type: "simple-https"
+    hosts:
+      - "www.myapp.com"
+      - "myapp.com"
+    certificate:
+      issuer: "letsencrypt-prod"
+      issuerKind: "ClusterIssuer"
+
+# Security: Enable mTLS between services
+securityPatterns:
+  peerAuthentication:
+    enabled: true
+    mode: "STRICT"
+  
+  authorization:
+    mode: "basic"  # Allow same namespace + monitoring
+
+# No egress patterns needed - allow all by default

@@ -1,0 +1,72 @@
+{{- define "patterns.ingress.simple-https" -}}
+{{- $pattern := .pattern }}
+{{- $root := .root }}
+---
+# Gateway for {{ $pattern.name }}
+apiVersion: networking.istio.io/v1beta1
+kind: Gateway
+metadata:
+  name: {{ $pattern.name }}-gateway
+  namespace: {{ $root.Values.namespace.name | default $root.Release.Namespace }}
+  labels:
+    pattern: "simple-https"
+    pattern-name: {{ $pattern.name }}
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+    # HTTP - redirect to HTTPS
+    - port:
+        number: 80
+        name: http
+        protocol: HTTP
+      hosts:
+        {{- range $pattern.hosts }}
+        - {{ . | quote }}
+        {{- end }}
+      tls:
+        httpsRedirect: true
+    # HTTPS
+    - port:
+        number: 443
+        name: https
+        protocol: HTTPS
+      hosts:
+        {{- range $pattern.hosts }}
+        - {{ . | quote }}
+        {{- end }}
+      tls:
+        mode: SIMPLE
+        credentialName: {{ $pattern.name }}-tls-secret
+        minProtocolVersion: TLSV1_2
+---
+# Certificate for {{ $pattern.name }}
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ $pattern.name }}-cert
+  namespace: {{ $root.Values.global.istioNamespace }}
+  labels:
+    pattern: "simple-https"
+    pattern-name: {{ $pattern.name }}
+spec:
+  secretName: {{ $pattern.name }}-tls-secret
+  dnsNames:
+    {{- range $pattern.hosts }}
+    - {{ . | quote }}
+    {{- end }}
+  issuerRef:
+    name: {{ $pattern.certificate.issuer }}
+    kind: {{ $pattern.certificate.issuerKind | default "ClusterIssuer" }}
+    group: cert-manager.io
+  duration: {{ $root.Values.global.certificateDefaults.duration }}
+  renewBefore: {{ $root.Values.global.certificateDefaults.renewBefore }}
+  privateKey:
+    algorithm: {{ $root.Values.global.certificateDefaults.algorithm }}
+    size: {{ $root.Values.global.certificateDefaults.keySize }}
+    rotationPolicy: Always
+  usages:
+    - digital signature
+    - key encipherment
+    - server auth
+{{- end -}}

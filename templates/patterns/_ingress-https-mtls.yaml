@@ -1,0 +1,97 @@
+{{- define "patterns.ingress.mtls" -}}
+{{- $pattern := .pattern }}
+{{- $root := .root }}
+---
+# Gateway for {{ $pattern.name }} (Mutual TLS)
+apiVersion: networking.istio.io/v1beta1
+kind: Gateway
+metadata:
+  name: {{ $pattern.name }}-gateway
+  namespace: {{ $root.Values.namespace.name | default $root.Release.Namespace }}
+  labels:
+    pattern: "mtls"
+    pattern-name: {{ $pattern.name }}
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+    - port:
+        number: 443
+        name: https-mtls
+        protocol: HTTPS
+      hosts:
+        {{- range $pattern.hosts }}
+        - {{ . | quote }}
+        {{- end }}
+      tls:
+        mode: MUTUAL
+        credentialName: {{ $pattern.name }}-tls-secret
+        caCertificates: /etc/istio/{{ $pattern.name }}-ca/ca-cert.pem
+        minProtocolVersion: TLSV1_2
+---
+# Server Certificate for {{ $pattern.name }}
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ $pattern.name }}-cert
+  namespace: {{ $root.Values.global.istioNamespace }}
+  labels:
+    pattern: "mtls"
+    pattern-name: {{ $pattern.name }}
+spec:
+  secretName: {{ $pattern.name }}-tls-secret
+  dnsNames:
+    {{- range $pattern.hosts }}
+    - {{ . | quote }}
+    {{- end }}
+  issuerRef:
+    name: {{ $pattern.certificate.issuer }}
+    kind: {{ $pattern.certificate.issuerKind | default "Issuer" }}
+    group: cert-manager.io
+  duration: {{ $root.Values.global.certificateDefaults.duration }}
+  renewBefore: {{ $root.Values.global.certificateDefaults.renewBefore }}
+  privateKey:
+    algorithm: {{ $root.Values.global.certificateDefaults.algorithm }}
+    size: {{ $root.Values.global.certificateDefaults.keySize }}
+  usages:
+    - digital signature
+    - key encipherment
+    - server auth
+---
+# Client CA Certificate Secret for {{ $pattern.name }}
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ $pattern.name }}-ca-cert
+  namespace: {{ $root.Values.global.istioNamespace }}
+  labels:
+    pattern: "mtls"
+    pattern-name: {{ $pattern.name }}
+type: Opaque
+data:
+  ca-cert.pem: {{ $pattern.mtls.clientCaCertificate }}
+---
+{{- if eq ($pattern.authorization.mode | default "require-client-cert") "require-client-cert" }}
+# Authorization Policy for {{ $pattern.name }}
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: {{ $pattern.name }}-require-mtls
+  namespace: {{ $root.Values.namespace.name | default $root.Release.Namespace }}
+  labels:
+    pattern: "mtls"
+    pattern-name: {{ $pattern.name }}
+spec:
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            principals: ["*"]  # Any client with valid certificate
+      when:
+        - key: connection.requested_server_name
+          values:
+            {{- range $pattern.hosts }}
+            - {{ . | quote }}
+            {{- end }}
+{{- end }}
+{{- end -}}

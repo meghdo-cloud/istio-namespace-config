@@ -1,0 +1,127 @@
+{{- define "patterns.ingress.jwt-auth" -}}
+{{- $pattern := .pattern }}
+{{- $root := .root }}
+---
+# Gateway for {{ $pattern.name }} (JWT Protected)
+apiVersion: networking.istio.io/v1beta1
+kind: Gateway
+metadata:
+  name: {{ $pattern.name }}-gateway
+  namespace: {{ $root.Values.namespace.name | default $root.Release.Namespace }}
+  labels:
+    pattern: "jwt-auth"
+    pattern-name: {{ $pattern.name }}
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+    - port:
+        number: 80
+        name: http
+        protocol: HTTP
+      hosts:
+        {{- range $pattern.hosts }}
+        - {{ . | quote }}
+        {{- end }}
+      tls:
+        httpsRedirect: true
+    - port:
+        number: 443
+        name: https
+        protocol: HTTPS
+      hosts:
+        {{- range $pattern.hosts }}
+        - {{ . | quote }}
+        {{- end }}
+      tls:
+        mode: SIMPLE
+        credentialName: {{ $pattern.name }}-tls-secret
+        minProtocolVersion: TLSV1_2
+---
+# Certificate for {{ $pattern.name }}
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ $pattern.name }}-cert
+  namespace: {{ $root.Values.global.istioNamespace }}
+  labels:
+    pattern: "jwt-auth"
+    pattern-name: {{ $pattern.name }}
+spec:
+  secretName: {{ $pattern.name }}-tls-secret
+  dnsNames:
+    {{- range $pattern.hosts }}
+    - {{ . | quote }}
+    {{- end }}
+  issuerRef:
+    name: {{ $pattern.certificate.issuer }}
+    kind: {{ $pattern.certificate.issuerKind | default "ClusterIssuer" }}
+    group: cert-manager.io
+  duration: {{ $root.Values.global.certificateDefaults.duration }}
+  renewBefore: {{ $root.Values.global.certificateDefaults.renewBefore }}
+  privateKey:
+    algorithm: {{ $root.Values.global.certificateDefaults.algorithm }}
+    size: {{ $root.Values.global.certificateDefaults.keySize }}
+  usages:
+    - digital signature
+    - key encipherment
+    - server auth
+---
+# Request Authentication for {{ $pattern.name }}
+apiVersion: security.istio.io/v1beta1
+kind: RequestAuthentication
+metadata:
+  name: {{ $pattern.name }}-jwt
+  namespace: {{ $root.Values.namespace.name | default $root.Release.Namespace }}
+  labels:
+    pattern: "jwt-auth"
+    pattern-name: {{ $pattern.name }}
+spec:
+  jwtRules:
+    - issuer: {{ $pattern.jwt.issuer | quote }}
+      jwksUri: {{ $pattern.jwt.jwksUri | quote }}
+      {{- if $pattern.jwt.audiences }}
+      audiences:
+        {{- range $pattern.jwt.audiences }}
+        - {{ . | quote }}
+        {{- end }}
+      {{- end }}
+      forwardOriginalToken: {{ $pattern.jwt.forwardOriginalToken | default false }}
+      {{- if $pattern.jwt.outputPayloadToHeader }}
+      outputPayloadToHeader: {{ $pattern.jwt.outputPayloadToHeader }}
+      {{- end }}
+---
+# Authorization Policy for {{ $pattern.name }}
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: {{ $pattern.name }}-require-jwt
+  namespace: {{ $root.Values.namespace.name | default $root.Release.Namespace }}
+  labels:
+    pattern: "jwt-auth"
+    pattern-name: {{ $pattern.name }}
+spec:
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            requestPrincipals: ["*"]
+      when:
+        - key: request.auth.claims[iss]
+          values:
+            - {{ $pattern.jwt.issuer | quote }}
+        {{- if $pattern.jwt.audiences }}
+        - key: request.auth.claims[aud]
+          values:
+            {{- range $pattern.jwt.audiences }}
+            - {{ . | quote }}
+            {{- end }}
+        {{- end }}
+        {{- if $pattern.authorization.allowedRoles }}
+        - key: request.auth.claims[role]
+          values:
+            {{- range $pattern.authorization.allowedRoles }}
+            - {{ . | quote }}
+            {{- end }}
+        {{- end }}
+{{- end -}}

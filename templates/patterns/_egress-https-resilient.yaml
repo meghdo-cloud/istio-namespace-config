@@ -1,0 +1,132 @@
+{{- define "patterns.egress.https-api-resilient" -}}
+{{- $pattern := .pattern }}
+{{- $root := .root }}
+{{- $useEgressGateway := $pattern.useEgressGateway | default $root.Values.global.egressDefaults.useEgressGateway }}
+---
+# ServiceEntry for {{ $pattern.name }}
+apiVersion: networking.istio.io/v1beta1
+kind: ServiceEntry
+metadata:
+  name: {{ $pattern.name }}-se
+  namespace: {{ $root.Values.namespace.name | default $root.Release.Namespace }}
+  labels:
+    pattern: "https-api-resilient"
+    pattern-name: {{ $pattern.name }}
+spec:
+  hosts:
+    - {{ $pattern.host | quote }}
+  location: MESH_EXTERNAL
+  resolution: DNS
+  ports:
+    - number: 443
+      name: https
+      protocol: HTTPS
+---
+{{- if $useEgressGateway }}
+# Egress Gateway for {{ $pattern.name }}
+apiVersion: networking.istio.io/v1beta1
+kind: Gateway
+metadata:
+  name: {{ $pattern.name }}-egress
+  namespace: {{ $root.Values.namespace.name | default $root.Release.Namespace }}
+  labels:
+    pattern: "https-api-resilient"
+    pattern-name: {{ $pattern.name }}
+spec:
+  selector:
+    istio: egressgateway
+  servers:
+    - port:
+        number: 443
+        name: tls
+        protocol: TLS
+      hosts:
+        - {{ $pattern.host | quote }}
+      tls:
+        mode: ISTIO_MUTUAL
+---
+{{- end }}
+# VirtualService for {{ $pattern.name }} with resilience
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: {{ $pattern.name }}-vs
+  namespace: {{ $root.Values.namespace.name | default $root.Release.Namespace }}
+  labels:
+    pattern: "https-api-resilient"
+    pattern-name: {{ $pattern.name }}
+spec:
+  hosts:
+    - {{ $pattern.host | quote }}
+  {{- if $useEgressGateway }}
+  gateways:
+    - {{ $pattern.name }}-egress
+    - mesh
+  {{- end }}
+  http:
+    {{- if $useEgressGateway }}
+    - match:
+        - gateways:
+            - mesh
+          port: 443
+      route:
+        - destination:
+            host: istio-egressgateway.{{ $root.Values.global.istioNamespace }}.svc.cluster.local
+            port:
+              number: 443
+      timeout: {{ $pattern.resilience.timeout | default "30s" }}
+      retries:
+        attempts: {{ $pattern.resilience.retries | default 3 }}
+        perTryTimeout: {{ div (trimSuffix "s" ($pattern.resilience.timeout | default "30s") | int) ($pattern.resilience.retries | default 3 | int) }}s
+        retryOn: "5xx,reset,connect-failure,refused-stream"
+    - match:
+        - gateways:
+            - {{ $pattern.name }}-egress
+          port: 443
+      route:
+        - destination:
+            host: {{ $pattern.host | quote }}
+            port:
+              number: 443
+    {{- else }}
+    - route:
+        - destination:
+            host: {{ $pattern.host | quote }}
+            port:
+              number: 443
+      timeout: {{ $pattern.resilience.timeout | default "30s" }}
+      retries:
+        attempts: {{ $pattern.resilience.retries | default 3 }}
+        perTryTimeout: {{ div (trimSuffix "s" ($pattern.resilience.timeout | default "30s") | int) ($pattern.resilience.retries | default 3 | int) }}s
+        retryOn: "5xx,reset,connect-failure,refused-stream"
+    {{- end }}
+---
+# DestinationRule for {{ $pattern.name }} with circuit breaker
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: {{ $pattern.name }}-dr
+  namespace: {{ $root.Values.namespace.name | default $root.Release.Namespace }}
+  labels:
+    pattern: "https-api-resilient"
+    pattern-name: {{ $pattern.name }}
+spec:
+  host: {{ $pattern.host | quote }}
+  trafficPolicy:
+    tls:
+      mode: SIMPLE
+      sni: {{ $pattern.host | quote }}
+    connectionPool:
+      tcp:
+        maxConnections: {{ $pattern.resilience.circuitBreaker.maxConnections | default 100 }}
+        connectTimeout: {{ $pattern.resilience.connectTimeout | default "10s" }}
+      http:
+        http1MaxPendingRequests: {{ $pattern.resilience.circuitBreaker.maxPendingRequests | default 50 }}
+        http2MaxRequests: {{ $pattern.resilience.circuitBreaker.maxRequests | default 100 }}
+        maxRequestsPerConnection: {{ $pattern.resilience.circuitBreaker.maxRequestsPerConnection | default 2 }}
+    outlierDetection:
+      consecutive5xxErrors: {{ $pattern.resilience.circuitBreaker.consecutive5xxErrors | default 5 }}
+      interval: {{ $pattern.resilience.circuitBreaker.interval | default "30s" }}
+      baseEjectionTime: {{ $pattern.resilience.circuitBreaker.baseEjectionTime | default "30s" }}
+      maxEjectionPercent: {{ $pattern.resilience.circuitBreaker.maxEjectionPercent | default 50 }}
+{{- end -}}

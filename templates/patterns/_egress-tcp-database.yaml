@@ -1,0 +1,77 @@
+{{- define "patterns.egress.tcp-database" -}}
+{{- $pattern := .pattern }}
+{{- $root := .root }}
+---
+# ServiceEntry for {{ $pattern.name }} (TCP Database)
+apiVersion: networking.istio.io/v1beta1
+kind: ServiceEntry
+metadata:
+  name: {{ $pattern.name }}-se
+  namespace: {{ $root.Values.namespace.name | default $root.Release.Namespace }}
+  labels:
+    pattern: "tcp-database"
+    pattern-name: {{ $pattern.name }}
+spec:
+  hosts:
+    - {{ $pattern.host | quote }}
+  {{- if $pattern.address }}
+  addresses:
+    - {{ $pattern.address }}/32
+  {{- end }}
+  location: MESH_EXTERNAL
+  resolution: {{ if $pattern.address }}STATIC{{ else }}DNS{{ end }}
+  ports:
+    - number: {{ $pattern.port | default 5432 }}
+      name: {{ $pattern.protocol | default "tcp" }}
+      protocol: TCP
+  {{- if $pattern.address }}
+  endpoints:
+    - address: {{ $pattern.address }}
+      ports:
+        {{ $pattern.protocol | default "tcp" }}: {{ $pattern.port | default 5432 }}
+  {{- end }}
+---
+# VirtualService for {{ $pattern.name }}
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: {{ $pattern.name }}-vs
+  namespace: {{ $root.Values.namespace.name | default $root.Release.Namespace }}
+  labels:
+    pattern: "tcp-database"
+    pattern-name: {{ $pattern.name }}
+spec:
+  hosts:
+    - {{ $pattern.host | quote }}
+  tcp:
+    - match:
+        - port: {{ $pattern.port | default 5432 }}
+      route:
+        - destination:
+            host: {{ $pattern.host | quote }}
+            port:
+              number: {{ $pattern.port | default 5432 }}
+---
+# DestinationRule for {{ $pattern.name }} with connection pooling
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: {{ $pattern.name }}-dr
+  namespace: {{ $root.Values.namespace.name | default $root.Release.Namespace }}
+  labels:
+    pattern: "tcp-database"
+    pattern-name: {{ $pattern.name }}
+spec:
+  host: {{ $pattern.host | quote }}
+  trafficPolicy:
+    connectionPool:
+      tcp:
+        maxConnections: {{ $pattern.resilience.maxConnections | default 100 }}
+        connectTimeout: {{ $pattern.resilience.connectTimeout | default "10s" }}
+    {{- if $pattern.resilience.outlierDetection }}
+    outlierDetection:
+      consecutiveErrors: {{ $pattern.resilience.outlierDetection.consecutiveErrors | default 5 }}
+      interval: {{ $pattern.resilience.outlierDetection.interval | default "10s" }}
+      baseEjectionTime: {{ $pattern.resilience.outlierDetection.baseEjectionTime | default "30s" }}
+    {{- end }}
+{{- end -}}

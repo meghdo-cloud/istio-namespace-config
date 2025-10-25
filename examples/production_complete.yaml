@@ -1,0 +1,91 @@
+# Production Application with External APIs
+# Pattern-based configuration - simple and safe!
+
+namespace:
+  create: true
+  name: "production-app"
+  istioInjection: true
+  labels:
+    environment: "production"
+  
+  resourceQuota:
+    enabled: true
+    hard:
+      requests.cpu: "20"
+      requests.memory: "40Gi"
+      limits.cpu: "40"
+      limits.memory: "80Gi"
+      pods: "100"
+
+# Ingress Pattern: JWT-protected API
+ingressPatterns:
+  - name: "api"
+    type: "jwt-auth"
+    hosts:
+      - "api.example.com"
+    certificate:
+      issuer: "letsencrypt-prod"
+      issuerKind: "ClusterIssuer"
+    jwt:
+      issuer: "https://auth.example.com"
+      jwksUri: "https://auth.example.com/.well-known/jwks.json"
+      audiences:
+        - "api.example.com"
+    authorization:
+      allowedRoles: ["user", "admin"]
+
+# Egress Patterns: External services made easy!
+egressPatterns:
+  # Simple API - auto-creates ServiceEntry, Gateway, VirtualService, DestinationRule
+  - name: "stripe"
+    type: "https-api"
+    host: "api.stripe.com"
+  
+  # API with circuit breaker for resilience
+  - name: "payment-gateway"
+    type: "https-api-resilient"
+    host: "api.paymentprovider.com"
+    resilience:
+      timeout: "30s"
+      retries: 3
+      circuitBreaker:
+        maxConnections: 10
+        consecutive5xxErrors: 5
+        baseEjectionTime: "30s"
+  
+  # Cloud storage optimized for large files
+  - name: "s3"
+    type: "cloud-storage"
+    host: "*.s3.amazonaws.com"
+  
+  # External database
+  - name: "external-db"
+    type: "tcp-database"
+    host: "db.external.com"
+    port: 5432
+    address: "192.168.1.100"
+    resilience:
+      maxConnections: 50
+      connectTimeout: "10s"
+
+# Security Patterns
+securityPatterns:
+  peerAuthentication:
+    enabled: true
+    mode: "STRICT"
+  
+  authorization:
+    mode: "basic"
+    allowedNamespaces:
+      - "frontend"
+      - "monitoring"
+  
+  egressControl:
+    mode: "allow-registered"  # Only allow defined external services
+
+# Global settings for all patterns
+global:
+  egressDefaults:
+    useEgressGateway: true
+    timeout: "30s"
+    retries: 2

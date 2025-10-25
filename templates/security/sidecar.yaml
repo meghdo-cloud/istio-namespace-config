@@ -1,0 +1,23 @@
+{{- $egressMode := .Values.securityPatterns.egressControl.mode | default "allow-all" }}
+
+{{- if or (eq $egressMode "allow-registered") (eq $egressMode "deny-all") }}
+---
+# Sidecar configuration for egress control
+apiVersion: networking.istio.io/v1beta1
+kind: Sidecar
+metadata:
+  name: default
+  namespace: {{ .Values.namespace.name | default .Release.Namespace }}
+  labels:
+    security-pattern: "egress-control"
+spec:
+  egress:
+    - hosts:
+        - "./*"  # Same namespace
+        - "{{ .Values.global.istioNamespace }}/*"  # Istio system namespace
+        {{- if eq $egressMode "allow-registered" }}
+        # Allow access to registered external services only
+        {{- end }}
+  outboundTrafficPolicy:
+    mode: {{ if eq $egressMode "allow-registered" }}"REGISTRY_ONLY"{{ else }}"ALLOW_ANY"{{ end }}
+{{- end }}

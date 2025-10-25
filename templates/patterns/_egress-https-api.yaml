@@ -1,0 +1,136 @@
+{{- define "patterns.egress.https-api" -}}
+{{- $pattern := .pattern }}
+{{- $root := .root }}
+{{- $useEgressGateway := $pattern.useEgressGateway | default $root.Values.global.egressDefaults.useEgressGateway }}
+---
+# ServiceEntry for {{ $pattern.name }}
+apiVersion: networking.istio.io/v1beta1
+kind: ServiceEntry
+metadata:
+  name: {{ $pattern.name }}-se
+  namespace: {{ $root.Values.namespace.name | default $root.Release.Namespace }}
+  labels:
+    pattern: "https-api"
+    pattern-name: {{ $pattern.name }}
+spec:
+  hosts:
+    - {{ $pattern.host | quote }}
+  location: MESH_EXTERNAL
+  resolution: DNS
+  ports:
+    - number: 443
+      name: https
+      protocol: HTTPS
+---
+{{- if $useEgressGateway }}
+# Egress Gateway for {{ $pattern.name }}
+apiVersion: networking.istio.io/v1beta1
+kind: Gateway
+metadata:
+  name: {{ $pattern.name }}-egress
+  namespace: {{ $root.Values.namespace.name | default $root.Release.Namespace }}
+  labels:
+    pattern: "https-api"
+    pattern-name: {{ $pattern.name }}
+spec:
+  selector:
+    istio: egressgateway
+  servers:
+    - port:
+        number: 443
+        name: tls
+        protocol: TLS
+      hosts:
+        - {{ $pattern.host | quote }}
+      tls:
+        mode: ISTIO_MUTUAL
+---
+{{- end }}
+# VirtualService for {{ $pattern.name }}
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: {{ $pattern.name }}-vs
+  namespace: {{ $root.Values.namespace.name | default $root.Release.Namespace }}
+  labels:
+    pattern: "https-api"
+    pattern-name: {{ $pattern.name }}
+spec:
+  hosts:
+    - {{ $pattern.host | quote }}
+  {{- if $useEgressGateway }}
+  gateways:
+    - {{ $pattern.name }}-egress
+    - mesh
+  {{- end }}
+  http:
+    {{- if $useEgressGateway }}
+    # Route from pods to egress gateway
+    - match:
+        - gateways:
+            - mesh
+          port: 443
+      route:
+        - destination:
+            host: istio-egressgateway.{{ $root.Values.global.istioNamespace }}.svc.cluster.local
+            port:
+              number: 443
+      timeout: {{ $pattern.timeout | default $root.Values.global.egressDefaults.timeout }}
+      {{- if $pattern.retries }}
+      retries:
+        attempts: {{ $pattern.retries }}
+        perTryTimeout: {{ div (trimSuffix "s" ($pattern.timeout | default $root.Values.global.egressDefaults.timeout) | int) ($pattern.retries | int) }}s
+        retryOn: "5xx,reset,connect-failure,refused-stream"
+      {{- else if $root.Values.global.egressDefaults.retries }}
+      retries:
+        attempts: {{ $root.Values.global.egressDefaults.retries }}
+        perTryTimeout: {{ div (trimSuffix "s" ($pattern.timeout | default $root.Values.global.egressDefaults.timeout) | int) ($root.Values.global.egressDefaults.retries | int) }}s
+        retryOn: "5xx,reset,connect-failure,refused-stream"
+      {{- end }}
+    # Route from egress gateway to external service
+    - match:
+        - gateways:
+            - {{ $pattern.name }}-egress
+          port: 443
+      route:
+        - destination:
+            host: {{ $pattern.host | quote }}
+            port:
+              number: 443
+    {{- else }}
+    # Direct route to external service
+    - route:
+        - destination:
+            host: {{ $pattern.host | quote }}
+            port:
+              number: 443
+      timeout: {{ $pattern.timeout | default $root.Values.global.egressDefaults.timeout }}
+      {{- if $pattern.retries }}
+      retries:
+        attempts: {{ $pattern.retries }}
+        perTryTimeout: {{ div (trimSuffix "s" ($pattern.timeout | default $root.Values.global.egressDefaults.timeout) | int) ($pattern.retries | int) }}s
+        retryOn: "5xx,reset,connect-failure,refused-stream"
+      {{- else if $root.Values.global.egressDefaults.retries }}
+      retries:
+        attempts: {{ $root.Values.global.egressDefaults.retries }}
+        perTryTimeout: {{ div (trimSuffix "s" ($pattern.timeout | default $root.Values.global.egressDefaults.timeout) | int) ($root.Values.global.egressDefaults.retries | int) }}s
+        retryOn: "5xx,reset,connect-failure,refused-stream"
+      {{- end }}
+    {{- end }}
+---
+# DestinationRule for {{ $pattern.name }}
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: {{ $pattern.name }}-dr
+  namespace: {{ $root.Values.namespace.name | default $root.Release.Namespace }}
+  labels:
+    pattern: "https-api"
+    pattern-name: {{ $pattern.name }}
+spec:
+  host: {{ $pattern.host | quote }}
+  trafficPolicy:
+    tls:
+      mode: SIMPLE
+      sni: {{ $pattern.host | quote }}
+{{- end -}}

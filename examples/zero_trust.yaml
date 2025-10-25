@@ -1,0 +1,84 @@
+# Zero Trust Security Model
+# Default deny with explicit allow rules
+
+namespace:
+  create: true
+  name: "zero-trust-app"
+  istioInjection: true
+  labels:
+    security: "high"
+
+# Ingress with JWT
+ingressPatterns:
+  - name: "api"
+    type: "jwt-auth"
+    hosts:
+      - "secure.example.com"
+    certificate:
+      issuer: "letsencrypt-prod"
+      issuerKind: "ClusterIssuer"
+    jwt:
+      issuer: "https://auth.example.com"
+      jwksUri: "https://auth.example.com/.well-known/jwks.json"
+      audiences:
+        - "api.secure.example.com"
+
+# Controlled egress - only to payment processor
+egressPatterns:
+  - name: "payment"
+    type: "https-api-resilient"
+    host: "api.paymentprocessor.com"
+    resilience:
+      timeout: "10s"
+      retries: 1  # No retries for payments
+      circuitBreaker:
+        maxConnections: 5
+        consecutive5xxErrors: 1
+
+# Zero Trust Security
+securityPatterns:
+  peerAuthentication:
+    enabled: true
+    mode: "STRICT"
+  
+  # Default deny + explicit allows
+  authorization:
+    mode: "zero-trust"
+    zeroTrust:
+      rules:
+        # Allow frontend to call API
+        - name: "allow-frontend-to-api"
+          from:
+            namespaces: ["frontend"]
+            serviceAccounts: ["webapp"]
+          to:
+            selector:
+              app: api
+            operations:
+              methods: ["GET", "POST"]
+              paths: ["/api/v1/*"]
+        
+        # Allow monitoring
+        - name: "allow-monitoring"
+          from:
+            namespaces: ["monitoring"]
+            serviceAccounts: ["prometheus"]
+          to:
+            operations:
+              methods: ["GET"]
+              paths: ["/metrics", "/health"]
+        
+        # Allow backend to database
+        - name: "allow-api-to-db"
+          from:
+            namespaces: ["zero-trust-app"]
+            serviceAccounts: ["api-service"]
+          to:
+            selector:
+              app: database-proxy
+            operations:
+              ports: ["5432"]
+  
+  # Block all undefined egress
+  egressControl:
+    mode: "allow-registered"

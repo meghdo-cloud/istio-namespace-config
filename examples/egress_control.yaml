@@ -1,0 +1,290 @@
+# Egress Control Example
+# Comprehensive external service management with monitoring and resilience
+
+namespace:
+  create: true
+  name: "app-with-egress"
+  istioInjection: true
+
+# Simple ingress for the application
+ingressGateway:
+  enabled: true
+  servers:
+    - port:
+        number: 443
+        name: https
+        protocol: HTTPS
+      hosts:
+        - "app.example.com"
+      tls:
+        mode: SIMPLE
+
+certificate:
+  enabled: true
+  dnsNames:
+    - "app.example.com"
+  issuerRef:
+    name: "letsencrypt-prod"
+    kind: "ClusterIssuer"
+
+peerAuthentication:
+  enabled: true
+  mode: STRICT
+
+# Focus on egress configuration
+egressGateway:
+  enabled: true
+  name: "app-egress"
+  selector:
+    istio: egressgateway
+  servers:
+    - port:
+        number: 443
+        name: tls
+        protocol: TLS
+      hosts:
+        - "*.googleapis.com"
+        - "*.github.com"
+        - "api.twilio.com"
+        - "redis.external.com"
+      tls:
+        mode: ISTIO_MUTUAL
+
+# Define all external services
+serviceEntries:
+  # Google Cloud Storage
+  - name: "google-cloud-storage"
+    hosts:
+      - "storage.googleapis.com"
+    location: MESH_EXTERNAL
+    resolution: DNS
+    ports:
+      - number: 443
+        name: https
+        protocol: HTTPS
+  
+  # GitHub API
+  - name: "github-api"
+    hosts:
+      - "api.github.com"
+    location: MESH_EXTERNAL
+    resolution: DNS
+    ports:
+      - number: 443
+        name: https
+        protocol: HTTPS
+  
+  # Twilio SMS API
+  - name: "twilio-api"
+    hosts:
+      - "api.twilio.com"
+    location: MESH_EXTERNAL
+    resolution: DNS
+    ports:
+      - number: 443
+        name: https
+        protocol: HTTPS
+  
+  # External Redis (TCP)
+  - name: "external-redis"
+    hosts:
+      - "redis.external.com"
+    addresses:
+      - "192.168.100.50/32"
+    location: MESH_EXTERNAL
+    resolution: STATIC
+    ports:
+      - number: 6379
+        name: redis
+        protocol: TCP
+    endpoints:
+      - address: "192.168.100.50"
+        ports:
+          redis: 6379
+
+# Route all egress through gateway
+virtualServices:
+  # Google Cloud Storage
+  - name: "gcs-route"
+    hosts:
+      - "storage.googleapis.com"
+    gateways:
+      - "app-egress"
+      - "mesh"
+    http:
+      - match:
+          - gateways:
+              - "mesh"
+            port: 443
+        route:
+          - destination:
+              host: "istio-egressgateway.istio-system.svc.cluster.local"
+              port:
+                number: 443
+        timeout: 60s
+        retries:
+          attempts: 3
+          perTryTimeout: 20s
+          retryOn: "5xx,reset,connect-failure"
+      - match:
+          - gateways:
+              - "app-egress"
+        route:
+          - destination:
+              host: "storage.googleapis.com"
+              port:
+                number: 443
+  
+  # GitHub API
+  - name: "github-route"
+    hosts:
+      - "api.github.com"
+    gateways:
+      - "app-egress"
+      - "mesh"
+    http:
+      - match:
+          - gateways:
+              - "mesh"
+        route:
+          - destination:
+              host: "istio-egressgateway.istio-system.svc.cluster.local"
+              port:
+                number: 443
+        timeout: 30s
+        retries:
+          attempts: 2
+          perTryTimeout: 10s
+      - match:
+          - gateways:
+              - "app-egress"
+        route:
+          - destination:
+              host: "api.github.com"
+              port:
+                number: 443
+  
+  # Twilio API
+  - name: "twilio-route"
+    hosts:
+      - "api.twilio.com"
+    gateways:
+      - "app-egress"
+      - "mesh"
+    http:
+      - match:
+          - gateways:
+              - "mesh"
+        route:
+          - destination:
+              host: "istio-egressgateway.istio-system.svc.cluster.local"
+              port:
+                number: 443
+        timeout: 15s
+      - match:
+          - gateways:
+              - "app-egress"
+        route:
+          - destination:
+              host: "api.twilio.com"
+              port:
+                number: 443
+  
+  # Redis (TCP routing)
+  - name: "redis-route"
+    hosts:
+      - "redis.external.com"
+    gateways:
+      - "mesh"
+    tcp:
+      - match:
+          - port: 6379
+        route:
+          - destination:
+              host: "redis.external.com"
+              port:
+                number: 6379
+
+# Apply traffic policies
+destinationRules:
+  # Google Cloud Storage - high throughput
+  - name: "gcs-policy"
+    host: "storage.googleapis.com"
+    trafficPolicy:
+      tls:
+        mode: SIMPLE
+        sni: "storage.googleapis.com"
+      connectionPool:
+        tcp:
+          maxConnections: 50
+        http:
+          http1MaxPendingRequests: 100
+          http2MaxRequests: 100
+          maxRequestsPerConnection: 10
+      outlierDetection:
+        consecutive5xxErrors: 10
+        interval: 60s
+        baseEjectionTime: 60s
+  
+  # GitHub API - conservative with rate limits
+  - name: "github-policy"
+    host: "api.github.com"
+    trafficPolicy:
+      tls:
+        mode: SIMPLE
+        sni: "api.github.com"
+      connectionPool:
+        tcp:
+          maxConnections: 10
+        http:
+          http1MaxPendingRequests: 20
+          http2MaxRequests: 20
+          maxRequestsPerConnection: 5
+      outlierDetection:
+        consecutive5xxErrors: 3
+        interval: 30s
+        baseEjectionTime: 120s
+        maxEjectionPercent: 50
+  
+  # Twilio - mission critical with strict circuit breaker
+  - name: "twilio-policy"
+    host: "api.twilio.com"
+    trafficPolicy:
+      tls:
+        mode: SIMPLE
+        sni: "api.twilio.com"
+      connectionPool:
+        tcp:
+          maxConnections: 20
+          connectTimeout: 5s
+        http:
+          http1MaxPendingRequests: 10
+          maxRequestsPerConnection: 3
+      outlierDetection:
+        consecutive5xxErrors: 2
+        interval: 10s
+        baseEjectionTime: 30s
+        maxEjectionPercent: 100
+  
+  # Redis - TCP connection pooling
+  - name: "redis-policy"
+    host: "redis.external.com"
+    trafficPolicy:
+      connectionPool:
+        tcp:
+          maxConnections: 50
+          connectTimeout: 2s
+      outlierDetection:
+        consecutiveErrors: 5
+        interval: 5s
+        baseEjectionTime: 15s
+
+# Restrict sidecar to only allow defined external services
+sidecar:
+  enabled: true
+  egress:
+    - hosts:
+        - "./*"
+        - "istio-system/*"
+  outboundTrafficPolicy:
+    mode: "REGISTRY_ONLY"  # Block any undefined external traffic

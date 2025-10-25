@@ -1,0 +1,32 @@
+# Mutual TLS API Example
+# For APIs requiring client certificate authentication
+
+namespace:
+  create: true
+  name: "secure-api"
+  istioInjection: true
+
+# Pattern: Mutual TLS Ingress
+# Auto-creates: Gateway with mTLS, Server cert, CA cert secret, AuthZ policy
+ingressPatterns:
+  - name: "api"
+    type: "mtls"
+    hosts:
+      - "api.secure.example.com"
+    certificate:
+      issuer: "company-ca"
+      issuerKind: "Issuer"
+    mtls:
+      # Client CA certificate (base64 encoded)
+      # Get with: cat client-ca.crt | base64 -w 0
+      clientCaCertificate: "LS0tLS1CRUdJTi...BASE64_ENCODED_CA_CERT...="
+    authorization:
+      mode: "require-client-cert"
+
+securityPatterns:
+  peerAuthentication:
+    enabled: true
+    mode: "STRICT"
+  
+  authorization:
+    mode: "basic"

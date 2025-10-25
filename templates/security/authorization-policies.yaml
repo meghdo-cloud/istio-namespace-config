@@ -1,0 +1,98 @@
+{{- $authMode := .Values.securityPatterns.authorization.mode | default "none" }}
+
+{{- if eq $authMode "basic" }}
+---
+# Basic Authorization: Allow same namespace and monitoring
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-same-namespace
+  namespace: {{ .Values.namespace.name | default .Release.Namespace }}
+  labels:
+    security-pattern: "basic-authorization"
+spec:
+  action: ALLOW
+  rules:
+    # Allow traffic from same namespace
+    - from:
+        - source:
+            namespaces:
+              - {{ .Values.namespace.name | default .Release.Namespace }}
+    # Allow monitoring
+    - from:
+        - source:
+            namespaces:
+              - "monitoring"
+      to:
+        - operation:
+            methods: ["GET"]
+            paths: ["/metrics", "/health", "/readiness", "/liveness"]
+{{- if .Values.securityPatterns.authorization.allowedNamespaces }}
+    # Allow additional namespaces
+    {{- range .Values.securityPatterns.authorization.allowedNamespaces }}
+    - from:
+        - source:
+            namespaces:
+              - {{ . }}
+    {{- end }}
+{{- end }}
+
+{{- else if eq $authMode "zero-trust" }}
+---
+# Zero Trust: Default deny all
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: default-deny-all
+  namespace: {{ .Values.namespace.name | default .Release.Namespace }}
+  labels:
+    security-pattern: "zero-trust"
+spec: {}
+
+{{- range $rule := .Values.securityPatterns.authorization.zeroTrust.rules }}
+---
+# Zero Trust Rule: {{ $rule.name }}
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: {{ $rule.name }}
+  namespace: {{ $.Values.namespace.name | default $.Release.Namespace }}
+  labels:
+    security-pattern: "zero-trust"
+spec:
+  action: ALLOW
+  {{- if $rule.to.selector }}
+  selector:
+    matchLabels:
+      {{- toYaml $rule.to.selector | nindent 6 }}
+  {{- end }}
+  rules:
+    - from:
+        {{- range $rule.from.namespaces }}
+        - source:
+            namespaces: [{{ . | quote }}]
+            {{- if $rule.from.serviceAccounts }}
+            principals:
+              {{- range $rule.from.serviceAccounts }}
+              - "cluster.local/ns/{{ index $rule.from.namespaces 0 }}/sa/{{ . }}"
+              {{- end }}
+            {{- end }}
+        {{- end }}
+      {{- if $rule.to.operations }}
+      to:
+        - operation:
+            {{- if $rule.to.operations.methods }}
+            methods:
+              {{- toYaml $rule.to.operations.methods | nindent 14 }}
+            {{- end }}
+            {{- if $rule.to.operations.paths }}
+            paths:
+              {{- toYaml $rule.to.operations.paths | nindent 14 }}
+            {{- end }}
+            {{- if $rule.to.operations.ports }}
+            ports:
+              {{- toYaml $rule.to.operations.ports | nindent 14 }}
+            {{- end }}
+      {{- end }}
+{{- end }}
+{{- end }}

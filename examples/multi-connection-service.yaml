@@ -1,0 +1,68 @@
+# Multi-Connection Service Example
+# Shows how a single service can connect to database + multiple APIs
+
+namespace:
+  create: true
+  name: "payment-service"
+  istioInjection: true
+
+# Simple HTTPS ingress for the service
+ingressPatterns:
+  - name: "payment-api"
+    type: "simple-https"
+    hosts:
+      - "payments.example.com"
+    certificate:
+      issuer: "letsencrypt-prod"
+      issuerKind: "ClusterIssuer"
+
+# Multi-connection egress pattern - one service needs multiple external connections
+egressPatterns:
+  - name: "payment-service-connections"
+    connections:
+      # Database connection
+      - name: "payment-db"
+        type: "tcp-database"
+        host: "db.payment.com"
+        port: 5432
+        address: "192.168.1.100"
+        resilience:
+          maxConnections: 50
+          connectTimeout: "10s"
+      
+      # Stripe API for payments
+      - name: "stripe-api"
+        type: "https-api-resilient"
+        host: "api.stripe.com"
+        resilience:
+          timeout: "30s"
+          retries: 3
+          circuitBreaker:
+            maxConnections: 20
+            consecutive5xxErrors: 5
+            baseEjectionTime: "30s"
+      
+      # Audit logging API
+      - name: "audit-api"
+        type: "https-api"
+        host: "audit.internal.com"
+      
+      # Cloud storage for receipts
+      - name: "receipt-storage"
+        type: "cloud-storage"
+        host: "*.s3.amazonaws.com"
+
+# Security settings
+securityPatterns:
+  peerAuthentication:
+    enabled: true
+    mode: "STRICT"
+  
+  authorization:
+    mode: "basic"
+    allowedNamespaces:
+      - "frontend"
+      - "monitoring"
+  
+  egressControl:
+    mode: "allow-registered"  # Only allow defined external services

@@ -1,0 +1,71 @@
+{{/*
+Pattern Renderer - Main Orchestrator
+This file includes all pattern templates and renders them based on user configuration
+*/}}
+
+{{/* ============================================ */}}
+{{/* INGRESS PATTERNS                             */}}
+{{/* ============================================ */}}
+
+{{- range $pattern := .Values.ingressPatterns }}
+
+{{- if eq $pattern.type "simple-https" }}
+{{/* Simple HTTPS Pattern */}}
+{{ include "patterns.ingress.simple-https" (dict "pattern" $pattern "root" $) }}
+
+{{- else if eq $pattern.type "mtls" }}
+{{/* Mutual TLS Pattern */}}
+{{ include "patterns.ingress.mtls" (dict "pattern" $pattern "root" $) }}
+
+{{- else if eq $pattern.type "jwt-auth" }}
+{{/* JWT Authentication Pattern */}}
+{{ include "patterns.ingress.jwt-auth" (dict "pattern" $pattern "root" $) }}
+
+{{- else }}
+{{/* Unknown pattern type */}}
+{{- fail (printf "Unknown ingress pattern type: %s. Supported types: simple-https, mtls, jwt-auth" $pattern.type) }}
+{{- end }}
+
+{{- end }}
+
+
+{{/* ============================================ */}}
+{{/* EGRESS PATTERNS                              */}}
+{{/* ============================================ */}}
+
+{{- range $pattern := .Values.egressPatterns }}
+
+{{- if $pattern.connections }}
+{{/* Multi-connection pattern - service needs multiple external connections */}}
+{{- range $connection := $pattern.connections }}
+
+{{- if eq $connection.type "https-api" }}
+{{ include "patterns.egress.https-api" (dict "pattern" $connection "root" $) }}
+{{- else if eq $connection.type "https-api-resilient" }}
+{{ include "patterns.egress.https-api-resilient" (dict "pattern" $connection "root" $) }}
+{{- else if eq $connection.type "tcp-database" }}
+{{ include "patterns.egress.tcp-database" (dict "pattern" $connection "root" $) }}
+{{- else if eq $connection.type "cloud-storage" }}
+{{ include "patterns.egress.cloud-storage" (dict "pattern" $connection "root" $) }}
+{{- else }}
+{{- fail (printf "Unknown egress connection type: %s" $connection.type) }}
+{{- end }}
+
+{{- end }}
+{{- else }}
+{{/* Single pattern (backward compatible) */}}
+
+{{- if eq $pattern.type "https-api" }}
+{{ include "patterns.egress.https-api" (dict "pattern" $pattern "root" $) }}
+{{- else if eq $pattern.type "https-api-resilient" }}
+{{ include "patterns.egress.https-api-resilient" (dict "pattern" $pattern "root" $) }}
+{{- else if eq $pattern.type "tcp-database" }}
+{{ include "patterns.egress.tcp-database" (dict "pattern" $pattern "root" $) }}
+{{- else if eq $pattern.type "cloud-storage" }}
+{{ include "patterns.egress.cloud-storage" (dict "pattern" $pattern "root" $) }}
+{{- else }}
+{{- fail (printf "Unknown egress pattern type: %s" $pattern.type) }}
+{{- end }}
+
+{{- end }}
+{{- end }}
