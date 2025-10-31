@@ -37,7 +37,7 @@ ingressPatterns:
   - name: "api"
     type: "mtls"
     hosts:
-      - "app.pristinebsl.com"
+      - "app.meghdo.cloud"
     certificate:
       issuer: "default-issuer"
       issuerKind: "Issuer"
@@ -109,7 +109,7 @@ egressPatterns:
           retries: 3
       - name: "payment-db"
         type: "tcp-database"
-        host: "meghdo-instance.ca9m0486s1c6.us-east-1.rds.amazonaws.com"
+        host: "35.233.22.188"
         port: 5432
 
 #################################################
