@@ -5,11 +5,8 @@
 # NAMESPACE CONFIGURATION
 #################################################
 namespace:
-  create: true
   name: ""
-  istioInjection: true
-  labels: {}
-  annotations: {}
+
   
   resourceQuota:
     enabled: false
@@ -99,22 +96,22 @@ egressPatterns: []
   #   type: "https-api"
   #   host: "api.stripe.com"
   
-  # Multi-connection pattern for services needing multiple external connections
-  # - name: "payment-service"
-  #   connections:
-  #     - name: "stripe-api"
-  #       type: "https-api"
-  #       host: "api.stripe.com"
-  #     - name: "payment-db"
-  #       type: "tcp-database"
-  #       host: "db.payment.com"
-  #       port: 5432
-  #     - name: "audit-api"
-  #       type: "https-api-resilient"
-  #       host: "audit.internal.com"
-  #       resilience:
-  #         timeout: "30s"
-  #         retries: 3
+  Multi-connection pattern for services needing multiple external connections
+  - name: "payment-service"
+    connections:
+      - name: "stripe-api"
+        type: "https-api"
+        host: "api.stripe.com"
+      - name: "meghdo-db"
+        type: "tcp-database"
+        host: "meghdo-instance.ca9m0486s1c6.us-east-1.rds.amazonaws.com"
+        port: 5432
+      - name: "audit-api"
+        type: "https-api-resilient"
+        host: "audit.internal.com"
+        resilience:
+          timeout: "30s"
+          retries: 3
 
 #################################################
 # SECURITY PATTERNS

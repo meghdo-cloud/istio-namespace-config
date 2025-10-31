@@ -2,11 +2,8 @@
 # Default deny with explicit allow rules
 
 namespace:
-  create: true
   name: "zero-trust-app"
-  istioInjection: true
-  labels:
-    security: "high"
+
 
 # Ingress with JWT
 ingressPatterns:

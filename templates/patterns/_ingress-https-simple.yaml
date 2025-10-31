@@ -37,20 +37,21 @@ spec:
         {{- end }}
       tls:
         mode: SIMPLE
-        credentialName: {{ $pattern.name }}-tls-secret
+        credentialName: {{ $root.Values.namespace.name | default $root.Release.Namespace }}-{{ $pattern.name }}-tls-secret
         minProtocolVersion: TLSV1_2
 ---
 # Certificate for {{ $pattern.name }}
 apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
-  name: {{ $pattern.name }}-cert
+  name: {{ $root.Values.namespace.name | default $root.Release.Namespace }}-{{ $pattern.name }}-cert
   namespace: {{ $root.Values.global.istioNamespace }}
   labels:
     pattern: "simple-https"
     pattern-name: {{ $pattern.name }}
+    source-namespace: {{ $root.Values.namespace.name | default $root.Release.Namespace }}
 spec:
-  secretName: {{ $pattern.name }}-tls-secret
+  secretName: {{ $root.Values.namespace.name | default $root.Release.Namespace }}-{{ $pattern.name }}-tls-secret
   dnsNames:
     {{- range $pattern.hosts }}
     - {{ . | quote }}

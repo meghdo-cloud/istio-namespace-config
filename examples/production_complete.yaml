@@ -2,11 +2,8 @@
 # Pattern-based configuration - simple and safe!
 
 namespace:
-  create: true
   name: "production-app"
-  istioInjection: true
-  labels:
-    environment: "production"
+
   
   resourceQuota:
     enabled: true

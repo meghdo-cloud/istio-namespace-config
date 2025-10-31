@@ -2,9 +2,8 @@
 # For APIs requiring client certificate authentication
 
 namespace:
-  create: true
   name: "secure-api"
-  istioInjection: true
+
 
 # Pattern: Mutual TLS Ingress
 # Auto-creates: Gateway with mTLS, Server cert, CA cert secret, AuthZ policy

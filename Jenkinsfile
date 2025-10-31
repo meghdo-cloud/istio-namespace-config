@@ -6,20 +6,20 @@ pipeline {
             }
     }
     parameters {
-       string(name: 'namespace', defaultValue: 'namespace1', description: 'A namespace yaml should be present tin the namespace-overides folder')
+       string(name: 'namespace', description: 'A namespace yaml should be present tin the namespace-overides folder')
      }
     environment {
-        CLUSTER = 'pristine-cluster'
-        REGION = 'eu-north-1'
+        PROJECT_ID = 'meghdo-4567'
+        CLUSTER = 'meghdo-cluster'
+        REGION = 'europe-west1'
     }
     stages {
-        stage('Connect to EKS Cluster') {
+        stage('Connect to GKE Cluster') {
             steps {
                 script {
-                    // Use AWS container to connect to EKS cluster
-                    container('aws') {
+                    container('infra-tools') {
                         sh """
-                        aws eks update-kubeconfig --name ${CLUSTER} --region ${REGION}
+                        gcloud container clusters get-credentials ${CLUSTER} --zone ${REGION} --project ${PROJECT_ID}
                         """
                     }
                 }
@@ -35,6 +35,17 @@ pipeline {
                                 --create-namespace \
                                 --values namespace-overides/${params.namespace}.yaml \
                                 --install 
+                      """
+                    }
+                    container('copy-secret') {
+                      sh """
+                            kubectl label namespace ${params.namespace} istio-injection=enabled
+                            kubectl get secret db-password -n default -o yaml | \\
+                                grep -v '^\\s*namespace:\\s' | \\
+                                grep -v '^\\s*uid:\\s' | \\
+                                grep -v '^\\s*resourceVersion:\\s' | \\
+                                grep -v '^\\s*creationTimestamp:\\s' | \\
+                                kubectl apply -n ${params.namespace} -f -
                       """
                     }
                 }

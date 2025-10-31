@@ -2,9 +2,8 @@
 # Just specify the pattern - all Istio resources created automatically!
 
 namespace:
-  create: true
   name: "my-webapp"
-  istioInjection: true
+
 
 # Pattern 1: Simple HTTPS Ingress
 # Creates: Gateway, Certificate, TLS config

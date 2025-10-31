@@ -2,9 +2,8 @@
 # Comprehensive external service management with monitoring and resilience
 
 namespace:
-  create: true
   name: "app-with-egress"
-  istioInjection: true
+  
 
 # Simple ingress for the application
 ingressGateway:

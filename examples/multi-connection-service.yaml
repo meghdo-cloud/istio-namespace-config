@@ -2,9 +2,7 @@
 # Shows how a single service can connect to database + multiple APIs
 
 namespace:
-  create: true
   name: "payment-service"
-  istioInjection: true
 
 # Simple HTTPS ingress for the service
 ingressPatterns:

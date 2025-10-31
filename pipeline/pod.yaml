@@ -52,6 +52,20 @@ spec:
         limits:
           memory: "512Mi"
           cpu: "512m"
+    - name: copy-secret
+      image: bitnami/kubectl:latest
+      command: ["sleep"]
+      args: ["9999999"]
+      volumeMounts:
+        - name: workspace-volume
+          mountPath: /home/jenkins/agent
+      resources:
+        requests:
+          memory: "128Mi"
+          cpu: "128m"
+        limits:
+          memory: "512Mi"
+          cpu: "512m"
     - name: aws
       image: amazon/aws-cli
       imagePullPolicy: Always

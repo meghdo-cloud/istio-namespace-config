@@ -5,11 +5,8 @@
 # NAMESPACE CONFIGURATION
 #################################################
 namespace:
-  create: true
   name: "fdash"
-  istioInjection: true
-  labels: {}
-  annotations: {}
+
   
   resourceQuota:
     enabled: false
@@ -113,7 +110,7 @@ egressPatterns:
           retries: 3
       - name: "payment-db"
         type: "tcp-database"
-        host: "db.payment.com"
+        host: "meghdo-instance.ca9m0486s1c6.us-east-1.rds.amazonaws.com"
         port: 5432
 
 #################################################

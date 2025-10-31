@@ -1,25 +1,3 @@
-{{- if .Values.namespace.create }}
----
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: {{ .Values.namespace.name | default .Release.Namespace | quote }}
-  labels:
-    {{- if .Values.namespace.istioInjection }}
-    istio-injection: enabled
-    {{- end }}
-    {{- with .Values.namespace.labels }}
-    {{- toYaml . | nindent 4 }}
-    {{- end }}
-    {{- with .Values.global.commonLabels }}
-    {{- toYaml . | nindent 4 }}
-    {{- end }}
-  {{- with .Values.namespace.annotations }}
-  annotations:
-    {{- toYaml . | nindent 4 }}
-  {{- end }}
-{{- end }}
-
 {{- if and .Values.namespace.create .Values.namespace.resourceQuota.enabled }}
 ---
 apiVersion: v1
