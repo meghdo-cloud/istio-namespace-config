@@ -39,7 +39,7 @@ spec:
           memory: "512Mi"
           cpu: "512m"
     - name: infra-tools
-      image: alpine/helm:3.11.1
+      image: meghdo/infra-tools:v1.0
       command: ["sleep"]
       args: ["9999999"]
       volumeMounts:
@@ -66,11 +66,4 @@ spec:
         limits:
           memory: "512Mi"
           cpu: "512m"
-    - name: aws
-      image: amazon/aws-cli
-      imagePullPolicy: Always
-      command: [ "sleep" ]
-      args: [ "9999999" ]
-      securityContext:
-        runAsUser: 0
-        runAsGroup: 0
+
