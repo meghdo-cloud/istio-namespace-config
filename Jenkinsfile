@@ -58,27 +58,45 @@ pipeline {
                       sh """
                         SERVICE_ACCOUNT_NAME="svc-${params.namespace}"
                         SERVICE_ACCOUNT_EMAIL="\${SERVICE_ACCOUNT_NAME}@${PROJECT_ID}.iam.gserviceaccount.com"
-                        
+
                         # Create the service account (or skip if exists)
-                        gcloud iam service-accounts create \${SERVICE_ACCOUNT_NAME} \
-                            --display-name="Service Account for ${params.namespace} Workload" \
-                            --project=${PROJECT_ID} || echo "Service account already exists"
-                        
+                        if gcloud iam service-accounts describe \${SERVICE_ACCOUNT_EMAIL} --project=${PROJECT_ID} >/dev/null 2>&1; then
+                            echo "Service account \${SERVICE_ACCOUNT_EMAIL} already exists, skipping creation"
+                        else
+                            echo "Creating service account \${SERVICE_ACCOUNT_NAME}..."
+                            gcloud iam service-accounts create \${SERVICE_ACCOUNT_NAME} \
+                                --display-name="Service Account for ${params.namespace} Workload" \
+                                --project=${PROJECT_ID}
+
+                            # Wait for service account to propagate
+                            echo "Waiting for service account to propagate..."
+                            sleep 10
+                        fi
+
+                        # Verify service account exists before binding roles
+                        until gcloud iam service-accounts describe \${SERVICE_ACCOUNT_EMAIL} --project=${PROJECT_ID} >/dev/null 2>&1; do
+                            echo "Waiting for service account to be ready..."
+                            sleep 2
+                        done
+
+                        echo "Service account is ready, adding IAM bindings..."
+
                         # Grant Artifact Registry Reader role (to pull images)
                         gcloud projects add-iam-policy-binding ${PROJECT_ID} \
                             --member="serviceAccount:\${SERVICE_ACCOUNT_EMAIL}" \
                             --role="roles/artifactregistry.reader"
-                        
+
                         # Grant Cloud SQL Editor role
                         gcloud projects add-iam-policy-binding ${PROJECT_ID} \
                             --member="serviceAccount:\${SERVICE_ACCOUNT_EMAIL}" \
                             --role="roles/cloudsql.editor"
-                        
+
                         # Grant Storage Object Viewer role (to read objects from storage)
                         gcloud projects add-iam-policy-binding ${PROJECT_ID} \
                             --member="serviceAccount:\${SERVICE_ACCOUNT_EMAIL}" \
                             --role="roles/storage.objectViewer"
-                        
+
+                        echo "IAM bindings completed successfully"
                       """
                     }
                 }
