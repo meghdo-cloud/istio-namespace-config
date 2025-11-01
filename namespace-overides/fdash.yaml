@@ -108,10 +108,10 @@ egressPatterns:
         resilience:
           timeout: "30s"
           retries: 3
-      - name: "payment-db"
-        type: "tcp-database"
-        host: "35.233.22.188"
-        port: 5432
+      # - name: "payment-db"
+      #   type: "tcp-database"
+      #   host: "db-meghdo.com"
+      #   port: 5432
 
 #################################################
 # SECURITY PATTERNS
