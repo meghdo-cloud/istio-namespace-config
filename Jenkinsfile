@@ -51,6 +51,39 @@ pipeline {
                 }
             }
         }
+         stage('Service Account creation and Workload identity') {
+            steps {
+                script {
+                    container('infra-tools') {
+                      sh """
+                        SERVICE_ACCOUNT_NAME="svc-${params.namespace}"
+                        SERVICE_ACCOUNT_EMAIL="\${SERVICE_ACCOUNT_NAME}@${PROJECT_ID}.iam.gserviceaccount.com"
+                        
+                        # Create the service account (or skip if exists)
+                        gcloud iam service-accounts create \${SERVICE_ACCOUNT_NAME} \
+                            --display-name="Service Account for ${params.namespace} Workload" \
+                            --project=${PROJECT_ID} || echo "Service account already exists"
+                        
+                        # Grant Artifact Registry Reader role (to pull images)
+                        gcloud projects add-iam-policy-binding ${PROJECT_ID} \
+                            --member="serviceAccount:\${SERVICE_ACCOUNT_EMAIL}" \
+                            --role="roles/artifactregistry.reader"
+                        
+                        # Grant Cloud SQL Editor role
+                        gcloud projects add-iam-policy-binding ${PROJECT_ID} \
+                            --member="serviceAccount:\${SERVICE_ACCOUNT_EMAIL}" \
+                            --role="roles/cloudsql.editor"
+                        
+                        # Grant Storage Object Viewer role (to read objects from storage)
+                        gcloud projects add-iam-policy-binding ${PROJECT_ID} \
+                            --member="serviceAccount:\${SERVICE_ACCOUNT_EMAIL}" \
+                            --role="roles/storage.objectViewer"
+                        
+                      """
+                    }
+                }
+            }
+        }
     }
     post {
         always {
