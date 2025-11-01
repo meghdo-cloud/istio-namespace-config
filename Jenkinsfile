@@ -26,6 +26,9 @@ pipeline {
             }
         }
         stage('Namespace and Istio config') {
+            when {
+                expression { params.namespace != null && params.namespace != '' }
+            }
             steps {
                 script {
                     container('infra-tools') {
@@ -52,6 +55,9 @@ pipeline {
             }
         }
          stage('Service Account creation and Workload identity') {
+            when {
+                expression { params.namespace != null && params.namespace != '' }
+            }
             steps {
                 script {
                     container('infra-tools') {
