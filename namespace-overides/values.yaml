@@ -102,16 +102,16 @@ egressPatterns: []
       - name: "stripe-api"
         type: "https-api"
         host: "api.stripe.com"
-      - name: "meghdo-db"
-        type: "tcp-database"
-        host: "35.233.22.188"
-        port: 5432
       - name: "audit-api"
         type: "https-api-resilient"
         host: "audit.internal.com"
         resilience:
           timeout: "30s"
           retries: 3
+      # - name: "meghdo-db"
+      #   type: "tcp-database"
+      #   host: "35.233.22.188"
+      #   port: 5432
 
 #################################################
 # SECURITY PATTERNS
